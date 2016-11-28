@@ -1,6 +1,6 @@
 // This program executes a typical convolutional layer in regular CNNs
 #include <iostream>
-#include "cnnConvLayer.hpp"
+#include "cnnConvLayer.h"
 using namespace std;
 
 // This is the CPU version, please don't modify it
@@ -19,8 +19,8 @@ void convLayerCPU()
 	for(fn = 0; fn < FILTNUM; fn++){
 		for(fmy = 0; fmy < FMSIZE; fmy += STRIDE){
 			for(fmx = 0; fmx < FMSIZE; fmx += STRIDE){
+				sum = 0;
 				for(sli = 0; sli < FMDEPTH; sli++){
-					sum = 0;
 					for(y = 0; y < FILTSIZE; y++){
 						for(x = 0; x < FILTSIZE; x++){
 							ifmy = fmy - FILTSIZE / 2 + y;
@@ -54,7 +54,7 @@ void convLayerCPU()
 						ofmy = fmy*2 + y;
 						ofmx = fmx*2 + x;
 						outNeuIdx = sli*fmArea + ofmy*FMSIZE + ofmx;
-						tmpVal = outNeu[outNeuIdx];
+						tmpVal = outNeu[outNeuIdx];	
 						if(tmpVal > max)
 							max = tmpVal;
 					}
@@ -77,27 +77,27 @@ int main()
 {
 	int convLayerCPUExecTime, convLayerGPUExecTime;
 	init();
-
-	timespec time_begin, time_end;
+		
+	timespec time_begin, time_end;                                                 
   clock_gettime(CLOCK_REALTIME, &time_begin);
 
 	convLayerCPU();
 
   clock_gettime(CLOCK_REALTIME, &time_end);
 	convLayerCPUExecTime = timespec_diff_us(time_begin, time_end);
-	cout << "CPU time for executing a typical convolutional layer = "
+	cout << "CPU time for executing a typical convolutional layer = " 
 			 <<  convLayerCPUExecTime / 1000 << "ms" << endl;
 
   clock_gettime(CLOCK_REALTIME, &time_begin);
 	/***	Lunch your CUDA Kernel here	***/
 
 	convLayerGPU<<<1,1>>>(); // Lunch the kernel
-
+	
 	cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
 	/***	Lunch your CUDA Kernel here	***/
   clock_gettime(CLOCK_REALTIME, &time_end);
 	convLayerGPUExecTime = timespec_diff_us(time_begin, time_end);
-	cout << "GPU time for executing a typical convolutional layer = "
+	cout << "GPU time for executing a typical convolutional layer = " 
 			 << convLayerGPUExecTime / 1000 << "ms" << endl;
 
 	if(checker()){
@@ -108,6 +108,6 @@ int main()
 		cout << "Sorry! Your result is wrong." << endl;
 
 	ending();
-
+	
 	return 0;
 }
