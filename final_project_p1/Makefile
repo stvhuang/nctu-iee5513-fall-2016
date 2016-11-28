@@ -1,13 +1,13 @@
 CXX = nvcc
-TARGET = cnnConvLayer
+TARGET = cnnConvLayer.exe
 
 all: cnnConvLayer.cu
-	$(CXX) $< -o $(TARGET)
+	$(CXX) $< -o $(TARGET) -Wno-deprecated-gpu-targets
 
-.PHONY: clean run
+run: all
+	./$(TARGET)
+
+.PHONY: clean
 
 clean:
-	rm -f $(TARGET) 
-
-run:
-	./$(TARGET)
+	rm -f $(TARGET)
