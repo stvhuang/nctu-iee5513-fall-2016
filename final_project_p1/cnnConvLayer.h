@@ -19,11 +19,6 @@ int *outNeu;
 int *outCPU;
 int *outGPU;
 
-short * devInputNeuron;
-short * devInputFilter;
-int * devOutputNeuron;
-int * devOutput;
-
 void init()
 {
     int i, j, k, l;

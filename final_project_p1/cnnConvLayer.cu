@@ -86,22 +86,6 @@ void convLayerCPU()
     }
 }
 
-void initGPU() // Allocate memory on device and copy data
-{
-    int inputNeuronSize = sizeof(short) * FMSIZE * FMSIZE * FMDEPTH;
-    int filtersSize = sizeof(short) * FILTNUM * FILTSIZE * FILTSIZE * FMDEPTH;
-    int outputNeuronSize = sizeof(int) * FMSIZE * FMSIZE * FMDEPTH;
-    int outputSize = sizeof(int) * FMSIZE / 2 * FMSIZE / 2 * FMDEPTH;
-
-    cudaMalloc(&devInputNeuron, inputNeuronSize);
-    cudaMalloc(&devInputFilter, filtersSize);
-    cudaMalloc(&devOutputNeuron, outputNeuronSize);
-    cudaMalloc(&devOutput, outputSize);
-
-    cudaMemcpy(devInputNeuron, inNeu, inputNeuronSize, cudaMemcpyHostToDevice);
-    cudaMemcpy(devInputFilter, filt, filtersSize, cudaMemcpyHostToDevice);
-}
-
 /*** Implement your CUDA Kernel here ***/
 __global__
 void convLayerGPU(short * inNeuron, short * filters, int * outNuron, int * out)
@@ -123,13 +107,41 @@ int main()
     convLayerCPUExecTime = timespec_diff_us(time_begin, time_end);
     cout << "CPU time for executing a typical convolutional layer = " <<  convLayerCPUExecTime / 1000 << "ms" << endl;
 
-    initGPU();
-  clock_gettime(CLOCK_REALTIME, &time_begin);
-    /***    Lunch your CUDA Kernel here    ***/
+    // declare device pointer
+    short * devInputNeuron;
+    short * devInputFilter;
+    int * devOutputNeuron;
+    int * devOutput;
+    // compute the size for allocating memory on device
+    int inputNeuronSize = sizeof(short) * FMSIZE * FMSIZE * FMDEPTH;
+    int filtersSize = sizeof(short) * FILTNUM * FILTSIZE * FILTSIZE * FMDEPTH;
+    int outputNeuronSize = sizeof(int) * FMSIZE * FMSIZE * FMDEPTH;
+    int outputSize = sizeof(int) * FMSIZE / 2 * FMSIZE / 2 * FMDEPTH;
+    // allocate memory on device
+    cudaMalloc(&devInputNeuron, inputNeuronSize);
+    cudaMalloc(&devInputFilter, filtersSize);
+    cudaMalloc(&devOutputNeuron, outputNeuronSize);
+    cudaMalloc(&devOutput, outputSize);
+    // copy data from host to deivce
+    cudaMemcpy(devInputNeuron, inNeu, inputNeuronSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(devInputFilter, filt, filtersSize, cudaMemcpyHostToDevice);
+
+    /*** Lunch your CUDA Kernel here ***/
+    clock_gettime(CLOCK_REALTIME, &time_begin);
     convLayerGPU<<<1, 1>>>(devInputNeuron, devInputFilter, devOutputNeuron, devOutput); // Lunch the kernel
-    cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
-    /***    Lunch your CUDA Kernel here    ***/
-  clock_gettime(CLOCK_REALTIME, &time_end);
+    cudaDeviceSynchronize();                                                            // Do synchronization before clock_gettime()
+    clock_gettime(CLOCK_REALTIME, &time_end);
+    /*** Lunch your CUDA Kernel here ***/
+
+    // copy data from device back to host
+    cudaMemcpy(outGPU, devOutput, outputSize, cudaMemcpyDeviceToHost);
+
+    // free the allocated memory on device
+    cudaFree(&devInputNeuron);
+    cudaFree(&devOutputNeuron);
+    cudaFree(&devOutput);
+    cudaFree(&devInputFilter);
+
     convLayerGPUExecTime = timespec_diff_us(time_begin, time_end);
 
     cout << "GPU time for executing a typical convolutional layer = " << convLayerGPUExecTime / 1000 << "ms" << endl;
@@ -143,11 +155,6 @@ int main()
     {
         cout << "Sorry! Your result is wrong." << endl;
     }
-
-    cudaFree(&devInputNeuron);
-    cudaFree(&devOutputNeuron);
-    cudaFree(&devOutput);
-    cudaFree(&devInputFilter);
 
     ending();
 
