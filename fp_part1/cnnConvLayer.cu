@@ -1,8 +1,23 @@
+/*
+Device name: GeForce GTX 680
+TotalGlobalMem: 2096832 MB
+SharedMemPerBlock: 48 MB
+MaxThreadsPerBlock: 1024
+MaxThreadsDim [x]: 1024 [y]: 1024 [z]: 64
+MaxGridSize [x]: 1024 [y]: 1024 [z]: 64
+MultiProcessorCount: 8
+MaxThreadsPerMultiProcessor: 2048
+*/
+
 // This program executes a typical convolutional layer in regular CNNs
 #include <iostream>
 #include "cnnConvLayer.h"
 
 using namespace std;
+
+const int FMAREA(FMSIZE * FMSIZE);
+const int FILTAREA(FILTSIZE * FILTSIZE);
+const int FILTVOL(FILTNUM * FILTAREA);
 
 // This is the CPU version, please don't modify it
 void convLayerCPU()
@@ -85,8 +100,115 @@ void convLayerCPU()
 
 /*** Implement your CUDA Kernel here ***/
 __global__
-void convLayerGPU(short * devInputNeuron, short * devInputFilter, int * devOutputNeuron, int * devOutput)
+void convLayerGPU(short * inNeu, short * filt, int * outNeu, int * out)
 {
+    __shared__ int tmp[FMAREA * FMDEPTH];
+    int filtIdx, sum, inNeuId
+    //const int outy(((threadIdx.x % (FMAREA) ) / FMSIZE));
+    //const int outx((threadIdx.x % FMAREA) % FMSIZE);
+
+    for (int iny(0); iny < FMSIZE; ++iny)
+    {
+        for (int inx(0); inx < FMSIZE; ++inx)
+        {
+            sum = 0;
+            for (int ky(0); ky < FMSIZE; ++ky) // kernel index y
+            {
+                for (int kx(0); kx < FMSIZE; ++kx)
+                {
+                    inNeuIdx = blockIdx.x * FMAREA + (iny - FMSIZE / 2 + ky) * FMSIZE + (inx - FMSIZE / 2 + kx);
+                    filtIdx = blockIdx.x * FILTVOL + ky * FILTSIZE + kx;
+                    sum += filt[filtIdx] * inNeu[inNeuIdx];
+                }
+            }
+            tmp[threadIdx.x * FMAREA + iny * FMSIZE + inx] = sum;
+        }
+    }
+
+    __syncthreads();
+
+    if (threadIdx.x == 0)
+    {
+        for (int iny(0); iny < FMSIZE; ++iny)
+        {
+            for (int inx(0); inx < FMSIZE; ++inx)
+            {
+                sum = 0;
+                for (int depth(0); depth < FMDEPTH; ++depth)
+                {
+                    sum += tmp[depth * FMDEPTH + iny * FMSIZE + inx];
+                }
+
+                if (sum > 0)
+                {
+                    outNeu[blockIdx.x * FMSIZE + iny * FMSIZE + inx] = sum;
+                }
+                else{
+                    outNeu[blockIdx.x * FMSIZE + iny * FMSIZE + inx] = 0;
+                }
+            }
+        }
+    }
+
+/*
+    //const int slice(threadIdx.x / (FMAREA));
+    const int outy(((threadIdx.x % (FMAREA) ) / FMSIZE));
+    const int outx((threadIdx.x % FMAREA) % FMSIZE);
+    const int outNeuIdx(blockIdx.x * FMAREA + outy * FMSIZE + outx);
+
+    int sum(0), inx(0), iny(0), filtIdx(0), inNeuIdx(0);
+
+    // Convolution
+    for (int depth(0); depth < FMDEPTH; ++depth)
+    {
+        for (int ky(0); ky < FMSIZE; ++ky) // kernel index y
+        {
+            for (int kx(0); kx < FMSIZE; ++kx)
+            {
+                iny = outy - FMSIZE / 2 + ky;
+                inx = outx - FMSIZE / 2 + kx;
+                filtIdx = blockIdx.x * FILTVOL + depth * FILTAREA + ky * FILTSIZE + kx;
+    			inNeuIdx = depth * FMAREA + iny * FMSIZE + inx;
+                if (iny >= 0 && iny < FMSIZE && inx >= 0 && inx < FMSIZE)
+                {
+                    sum += filt[filtIdx] * inNeu[inNeuIdx];
+                }
+            }
+        }
+    }
+
+    outNeu[outNeuIdx] = sum;
+
+    __syncthreads();
+
+    // Activation
+    if (outNeu[outNeuIdx] < 0)
+    {
+        outNeu[outNeuIdx] = 0;
+    }
+
+    __syncthreads();
+
+    // Max pooling
+    if ((outy % 2 == 0) && (outx % 2 == 0))
+    {
+        int outIdx = blockIdx.x * (FMSIZE / 2) + (outy / 2) + (FMSIZE / 2) * (outx / 2);
+        int max(0);
+        for (int i(0); i < 2; ++i)
+        {
+            for (int j(0); j < 2; ++j)
+            {
+                if (outNeu[outNeuIdx + i * (FMSIZE / 2) + j] > max)
+                {
+                    max = outNeu[outNeuIdx + i * (FMSIZE / 2) + j];
+                }
+            }
+        }
+        out[outIdx] = max;
+    }
+*/
+
+/*
     const int filtVol = FMDEPTH * FILTSIZE * FILTSIZE;
     const int filtArea = FILTSIZE * FILTSIZE;
     const int fmArea = FMSIZE * FMSIZE;
@@ -158,6 +280,7 @@ void convLayerGPU(short * devInputNeuron, short * devInputFilter, int * devOutpu
             }
         }
     }
+*/
 }
 /*** Implement your CUDA Kernel here ***/
 
@@ -198,7 +321,7 @@ int main()
 
     /*** Lunch your CUDA Kernel here ***/
   clock_gettime(CLOCK_REALTIME, &time_begin);
-    convLayerGPU<<<512, 1>>>(devInputNeuron, devInputFilter, devOutputNeuron, devOutput); // Lunch the kernel
+    convLayerGPU<<<512, 512>>>(devInputNeuron, devInputFilter, devOutputNeuron, devOutput); // Lunch the kernel
     cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
   clock_gettime(CLOCK_REALTIME, &time_end);
     /*** Lunch your CUDA Kernel here ***/
