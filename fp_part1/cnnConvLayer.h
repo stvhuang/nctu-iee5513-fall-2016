@@ -13,11 +13,11 @@ using namespace std;
 #define FILTNUM 512
 #define STRIDE 1
 
-short *filt;
-short *inNeu;
-int *outNeu;
-int *outCPU;
-int *outGPU;
+short * filt;
+short * inNeu;
+int * outNeu;
+int * outCPU;
+int * outGPU;
 
 void init()
 {
@@ -38,12 +38,12 @@ void init()
         exit(-1);
     }
 
-    for (i = 0; i < FMDEPTH; i++)
+    for (i = 0; i < FMDEPTH; ++i)
     {
         ifs >> str;
-        for (j = 0; j < FMSIZE; j++)
+        for (j = 0; j < FMSIZE; ++j)
         {
-            for (k = 0; k < FMSIZE; k++)
+            for (k = 0; k < FMSIZE; ++k)
             {
                 ifs >> tmp;
                 inNeuIdx = i * FMSIZE * FMSIZE + j * FMSIZE + k;
@@ -61,15 +61,15 @@ void init()
         exit(-1);
     }
 
-    for (i = 0; i < FILTNUM; i++)
+    for (i = 0; i < FILTNUM; ++i)
     {
         ifs >> str;
-        for (j = 0; j < FMDEPTH; j++)
+        for (j = 0; j < FMDEPTH; ++j)
         {
             ifs >> str;
-            for (k = 0; k < FILTSIZE; k++)
+            for (k = 0; k < FILTSIZE; ++k)
             {
-                for (l = 0; l < FILTSIZE; l++)
+                for (l = 0; l < FILTSIZE; ++l)
                 {
                     ifs >> tmp;
                     filtIdx = i * FMDEPTH * FILTSIZE * FILTSIZE + j * FILTSIZE * FILTSIZE + k * FILTSIZE + l;
@@ -99,7 +99,7 @@ bool checker()
     int i;
     int outVol = FILTNUM * FMSIZE / 2 * FMSIZE / 2;
 
-    for (i = 0; i < outVol; i++)
+    for (i = 0; i < outVol; ++i)
     {
         if (outCPU[i] != outGPU[i])
         {
