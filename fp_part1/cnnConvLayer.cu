@@ -109,12 +109,19 @@ void convLayerGPU(short * inNeu, short * filt, int * outNeu, int * out)
     __shared__ int tmp[FMDEPTH];
 
     int i, x, y, kx, ky, inx, iny, outx, outy, sum, max;
+    int upLow(threadIdx.x % 2), newIdx(threadIdx.x / 2);
 
-    for (i = 0; i < FILTAREA; i++)
+    if (upLow == 0)
     {
-        filter[FILTAREA * threadIdx.x + i] = filt[FILTVOL * blockIdx.x + FILTAREA * threadIdx.x + i];
+        for (i = 0; i < FILTAREA; i++)
+        {
+            filter[FILTAREA * newIdx + i] = filt[FILTVOL * blockIdx.x + FILTAREA * newIdx + i];
+        }
     }
 
+__syncthreads();
+if (threadIdx.x < 512)
+    //int y_start(upLow * 16), y_end(y_start + 16);
     for (x = 0; x < FMSIZE; ++x)
     {
         for (y = 0; y < FMSIZE; ++y)
@@ -219,7 +226,7 @@ int main()
 
     /*** Lunch your CUDA Kernel here ***/
   clock_gettime(CLOCK_REALTIME, &time_begin);
-    convLayerGPU<<<512, 512>>>(devInputNeuron, devInputFilter, devOutputNeuron, devOutput); // Lunch the kernel
+    convLayerGPU<<<512, 1024>>>(devInputNeuron, devInputFilter, devOutputNeuron, devOutput); // Lunch the kernel
     cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
   clock_gettime(CLOCK_REALTIME, &time_end);
     /*** Lunch your CUDA Kernel here ***/
