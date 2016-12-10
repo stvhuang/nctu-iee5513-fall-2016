@@ -1,14 +1,3 @@
-/*
-Device name: GeForce GTX 680
-TotalGlobalMem: 2096832 MB
-SharedMemPerBlock: 48 MB
-MaxThreadsPerBlock: 1024
-MaxThreadsDim [x]: 1024 [y]: 1024 [z]: 64
-MaxGridSize [x]: 1024 [y]: 1024 [z]: 64
-MultiProcessorCount: 8
-MaxThreadsPerMultiProcessor: 2048
-*/
-
 // This program executes a typical convolutional layer in regular CNNs
 #include <iostream>
 #include "cnnConvLayer.h"
@@ -20,6 +9,7 @@ static const int FILTAREA(FILTSIZE * FILTSIZE);
 static const int FILTVOL(FMDEPTH * FILTAREA);
 static const int OUTSIZE(FMSIZE / 2);
 static const int OUTAREA(OUTSIZE * OUTSIZE);
+static const int DOUBLE_FMDEPTH(2 * FMDEPTH);
 //static const int outArea = FMSIZE / 2 * FMSIZE / 2;
 
 // This is the CPU version, please don't modify it
@@ -106,7 +96,7 @@ __global__
 void convLayerGPU(short * inNeu, short * filt, int * outNeu, int * out)
 {
     __shared__ short filter[FILTVOL];
-    __shared__ int tmp[FMDEPTH];
+    __shared__ int tmp[DOUBLE_FMDEPTH];
 
     int i, x, y, kx, ky, inx, iny, outx, outy, sum, max;
     int upLow(threadIdx.x % 2), newIdx(threadIdx.x / 2);
@@ -119,12 +109,15 @@ void convLayerGPU(short * inNeu, short * filt, int * outNeu, int * out)
         }
     }
 
-__syncthreads();
-if (threadIdx.x < 512)
-    //int y_start(upLow * 16), y_end(y_start + 16);
+    __syncthreads();
+
+    //if (threadIdx.x < 512)
+    int y_start = upLow * 16; // 0 and 16
+    int y_end = y_start + 16; // 16 and 32
+
     for (x = 0; x < FMSIZE; ++x)
     {
-        for (y = 0; y < FMSIZE; ++y)
+        for (y = y_start; y < y_end; ++y)
         {
             tmp[threadIdx.x] = 0;
             for (kx = 0; kx < FILTSIZE; ++kx)
@@ -135,8 +128,8 @@ if (threadIdx.x < 512)
                     iny = y - FILTSIZE / 2 + ky;
                     if (inx >= 0 && inx < FMSIZE && iny >= 0 && iny < FMSIZE)
                     {
-                        tmp[threadIdx.x] += inNeu[threadIdx.x * FMAREA + iny * FMSIZE + inx] \
-                            * filter[threadIdx.x * FILTAREA + ky * FILTSIZE + kx];
+                        tmp[threadIdx.x] += inNeu[newIdx * FMAREA + iny * FMSIZE + inx] \
+                            * filter[newIdx * FILTAREA + ky * FILTSIZE + kx];
                     }
                 }
             }
@@ -144,20 +137,20 @@ if (threadIdx.x < 512)
             __syncthreads();
 
             sum = 0;
-            if (threadIdx.x == 0)
+            if (threadIdx.x == 0 || threadIdx.x == 2)
             {
-                for (int i = 0; i < FMDEPTH; ++i)
+                for (i = newIdx; i < DOUBLE_FMDEPTH; i += 2)
                 {
                     sum += tmp[i];
                 }
 
                 if (sum > 0)
                 {
-                    outNeu[blockIdx.x * FMAREA + y * FMSIZE + x] = sum;
+                    outNeu[blockIdx.x * FMAREA + (y + (16 * newIdx)) * FMSIZE + x] = sum;
                 }
                 else
                 {
-                    outNeu[blockIdx.x * FMAREA + y * FMSIZE + x] = 0;
+                    outNeu[blockIdx.x * FMAREA + (y + (16 * newIdx)) * FMSIZE + x] = 0;
                 }
             }
 
