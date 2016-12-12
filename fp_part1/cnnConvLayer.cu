@@ -7,10 +7,6 @@ using namespace std;
 static const int FMAREA(FMSIZE * FMSIZE);
 static const int FILTAREA(FILTSIZE * FILTSIZE);
 static const int FILTVOL(FMDEPTH * FILTAREA);
-static const int OUTSIZE(FMSIZE / 2);
-static const int OUTAREA(OUTSIZE * OUTSIZE);
-static const int DOUBLE_FMDEPTH(2 * FMDEPTH);
-//static const int outArea = FMSIZE / 2 * FMSIZE / 2;
 
 // This is the CPU version, please don't modify it
 void convLayerCPU()
@@ -95,89 +91,58 @@ void convLayerCPU()
 __global__
 void convLayerGPU(short * inNeu, short * filt, int * outNeu, int * out)
 {
-    __shared__ short filter[FILTVOL];
-    __shared__ int tmp[DOUBLE_FMDEPTH];
+    __shared__ short filter[FILTAREA];
+    __shared__ int outcome[1024], current_need_inNeu[1024];
 
-    int i, x, y, kx, ky, inx, iny, outx, outy, sum, max;
-    int upLow(threadIdx.x % 2), newIdx(threadIdx.x / 2);
+    int threadId(threadIdx.x), x(threadId % 32), y(threadId / 32), inx(0), iny(0);
 
-    if (upLow == 0)
+    outcome[threadId] = 0;
+
+    for (int slice(0); slice < 512; ++slice)
     {
-        for (i = 0; i < FILTAREA; i++)
+        if (threadId == 0)
         {
-            filter[FILTAREA * newIdx + i] = filt[FILTVOL * blockIdx.x + FILTAREA * newIdx + i];
+            for (int i(0); i < 9; ++i)
+            {
+                filter[i] = filt[FILTVOL * blockIdx.x + FILTAREA * slice + i];
+            }
         }
+
+        current_need_inNeu[threadId] = inNeu[slice * FMAREA + threadId];
+
+        __syncthreads();
+
+        for (int ky(0); ky < FILTSIZE; ++ky)
+        {
+            for (int kx(0); kx < FILTSIZE; ++kx)
+            {
+                inx = x - FILTSIZE / 2 + kx;
+                iny = y - FILTSIZE / 2 + ky;
+                if (inx >= 0 && inx < FMSIZE && iny >= 0 && iny < FMSIZE)
+                {
+                    outcome[threadId] += current_need_inNeu[iny * FMSIZE + inx] \
+                        * filter[ky * FILTSIZE + kx];
+                }
+            }
+        }
+        __syncthreads();
     }
 
-    __syncthreads();
-
-    //if (threadIdx.x < 512)
-    int y_start = upLow * 16; // 0 and 16
-    int y_end = y_start + 16; // 16 and 32
-
-    for (x = 0; x < FMSIZE; ++x)
+    // Max Pooling with Window Size 2x2
+    if (threadId < 256)
     {
-        for (y = y_start; y < y_end; ++y)
+        int outx(threadId % 16), outy(threadId / 16), max(0), outy_double(outy * 2), outx_double(outx * 2);
+        for (int i(0); i < 2; ++i)
         {
-            tmp[threadIdx.x] = 0;
-            for (kx = 0; kx < FILTSIZE; ++kx)
+            for (int j(0); j < 2; ++j)
             {
-                for (ky = 0; ky < FILTSIZE; ++ky)
+                if (max < outcome[(outy_double + i) * FMSIZE + (outx_double + j)])
                 {
-                    inx = x - FILTSIZE / 2 + kx;
-                    iny = y - FILTSIZE / 2 + ky;
-                    if (inx >= 0 && inx < FMSIZE && iny >= 0 && iny < FMSIZE)
-                    {
-                        tmp[threadIdx.x] += inNeu[newIdx * FMAREA + iny * FMSIZE + inx] \
-                            * filter[newIdx * FILTAREA + ky * FILTSIZE + kx];
-                    }
-                }
-            }
-
-            __syncthreads();
-
-            sum = 0;
-            if (threadIdx.x == 0 || threadIdx.x == 2)
-            {
-                for (i = newIdx; i < DOUBLE_FMDEPTH; i += 2)
-                {
-                    sum += tmp[i];
-                }
-
-                if (sum > 0)
-                {
-                    outNeu[blockIdx.x * FMAREA + (y + (16 * newIdx)) * FMSIZE + x] = sum;
-                }
-                else
-                {
-                    outNeu[blockIdx.x * FMAREA + (y + (16 * newIdx)) * FMSIZE + x] = 0;
-                }
-            }
-
-            __syncthreads();
-        }
-    }
-
-    __syncthreads();
-
-    // Max Pooling
-
-    max = 0;
-    if (threadIdx.x < OUTAREA)
-    {
-        outy = threadIdx.x % OUTSIZE;
-        outx = threadIdx.x / OUTSIZE;
-        for (int i = 0; i < 2; ++i)
-        {
-            for (int j = 0; j < 2; ++j)
-            {
-                if (max < outNeu[blockIdx.x * FMAREA + (outy * 2 + i) * FMSIZE + (outx * 2 + j)])
-                {
-                    max = outNeu[blockIdx.x * FMAREA + (outy * 2 + i) * FMSIZE + (outx * 2 + j)];
+                    max = outcome[(outy_double + i) * FMSIZE + (outx_double + j)];
                 }
             }
         }
-        out[blockIdx.x * OUTAREA + outy * OUTSIZE + outx] = max;
+        out[blockIdx.x * 256 + outy * 16 + outx] = max;
     }
 }
 /*** Implement your CUDA Kernel here ***/
