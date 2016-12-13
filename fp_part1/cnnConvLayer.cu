@@ -89,23 +89,22 @@ void convLayerCPU()
 
 /*** Implement your CUDA Kernel here ***/
 __global__
-void convLayerGPU(short * inNeu, short * filt, int * outNeu, int * out)
+void convLayerGPU(short * inNeu, short * filt, int * out)
 {
     __shared__ short filter[FILTAREA];
     __shared__ int outcome[1024], current_need_inNeu[1024];
 
-    int threadId(threadIdx.x), x(threadId % 32), y(threadId / 32), inx(0), iny(0);
+    const int threadId(threadIdx.x), x(threadId % 32), y(threadId / 32), \
+        outx(threadId % 16), outy(threadId / 16), outy_double(outy * 2), outx_double(outx * 2);
+    int inx(0), iny(0), max(0);
 
     outcome[threadId] = 0;
 
     for (int slice(0); slice < 512; ++slice)
     {
-        if (threadId == 0)
+        if (threadId < 9)
         {
-            for (int i(0); i < 9; ++i)
-            {
-                filter[i] = filt[FILTVOL * blockIdx.x + FILTAREA * slice + i];
-            }
+            filter[threadId] = filt[FILTVOL * blockIdx.x + FILTAREA * slice + threadId];
         }
 
         current_need_inNeu[threadId] = inNeu[slice * FMAREA + threadId];
@@ -131,7 +130,6 @@ void convLayerGPU(short * inNeu, short * filt, int * outNeu, int * out)
     // Max Pooling with Window Size 2x2
     if (threadId < 256)
     {
-        int outx(threadId % 16), outy(threadId / 16), max(0), outy_double(outy * 2), outx_double(outx * 2);
         for (int i(0); i < 2; ++i)
         {
             for (int j(0); j < 2; ++j)
@@ -169,13 +167,11 @@ int main()
     // compute the size for allocating memory on device
     const int inputNeuronSize = sizeof(short) * FMSIZE * FMSIZE * FMDEPTH;
     const int filtersSize = sizeof(short) * FILTNUM * FILTSIZE * FILTSIZE * FMDEPTH;
-    const int outputNeuronSize = sizeof(int) * FMSIZE * FMSIZE * FMDEPTH;
     const int outputSize = sizeof(int) * FMSIZE / 2 * FMSIZE / 2 * FMDEPTH;
 
     // allocate memory on device
     cudaMalloc(&devInputNeuron, inputNeuronSize);
     cudaMalloc(&devInputFilter, filtersSize);
-    cudaMalloc(&devOutputNeuron, outputNeuronSize);
     cudaMalloc(&devOutput, outputSize);
 
     // copy data from host to deivce
@@ -184,7 +180,7 @@ int main()
 
     /*** Lunch your CUDA Kernel here ***/
   clock_gettime(CLOCK_REALTIME, &time_begin);
-    convLayerGPU<<<512, 1024>>>(devInputNeuron, devInputFilter, devOutputNeuron, devOutput); // Lunch the kernel
+    convLayerGPU<<<512, 1024>>>(devInputNeuron, devInputFilter, devOutput); // Lunch the kernel
     cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
   clock_gettime(CLOCK_REALTIME, &time_end);
     /*** Lunch your CUDA Kernel here ***/
