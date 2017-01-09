@@ -1,7 +1,6 @@
 // This program executes a typical convolutional layer in regular CNNs
 #include <iostream>
 #include "cnnConvLayer.h"
-
 using namespace std;
 
 // This is the CPU version, please don't modify it
@@ -24,17 +23,17 @@ void convLayerCPU()
             for (fmx = 0; fmx < FMSIZE; fmx += STRIDE)
             {
                 sum = 0;
-                for(sli = 0; sli < FMDEPTH; ++sli)
+                for (sli = 0; sli < FMDEPTH; ++sli)
                 {
-                    for(y = 0; y < FILTSIZE; ++y)
+                    for (y = 0; y < FILTSIZE; ++y)
                     {
-                        for(x = 0; x < FILTSIZE; ++x)
+                        for (x = 0; x < FILTSIZE; ++x)
                         {
                             ifmy = fmy - FILTSIZE / 2 + y;
                             ifmx = fmx - FILTSIZE / 2 + x;
                             filtIdx = fn * filtVol + sli * filtArea + y * FILTSIZE + x;
                             inNeuIdx = sli * fmArea + ifmy * FMSIZE + ifmx;
-                            if(ifmy >= 0 && ifmy < FMSIZE && ifmx >= 0 && ifmx < FMSIZE)
+                            if (ifmy >= 0 && ifmy < FMSIZE && ifmx >= 0 && ifmx < FMSIZE)
                             {
                                 sum += filt[filtIdx] * inNeu[inNeuIdx];
                             }
@@ -57,7 +56,7 @@ void convLayerCPU()
 
     // Max Pooling with Window Size 2x2
     int max, tmpVal;
-    for (sli = 0; sli < FILTNUM; ++sli)
+    for ( sli = 0; sli < FILTNUM; ++sli)
     {
         for (fmy = 0; fmy < FMSIZE/2 ; ++fmy)
         {

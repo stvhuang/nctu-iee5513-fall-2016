@@ -22,13 +22,13 @@ int * outGPU;
 
 short * filtCooNNZ;
 short * filtCooData;
-char * filtCooRow;
-char * filtCooCol;
+short * filtCooRow;
+short * filtCooCol;
 
 short * inNeuCooNNZ;
 short * inNeuCooData;
-char * inNeuCooRow;
-char * inNeuCooCol;
+short * inNeuCooRow;
+short * inNeuCooCol;
 
 void init()
 {
@@ -121,33 +121,34 @@ void initCoo()
         {
             ifs >> str;
             ifs >> str >> nnz;
+            idx = i * FMDEPTH + j;
             filtCooNNZ[idx] = nnz;
-            if (i == 0)
+            if (i == 0 && j==0)
             {
                 filtCooData = new short [FILTNUM * FMDEPTH * nnz];
-                filtCooRow = new char [FILTNUM * FMDEPTH * nnz];
-                filtCooCol = new char [FILTNUM * FMDEPTH * nnz];
+                filtCooRow = new short [FILTNUM * FMDEPTH * nnz];
+                filtCooCol = new short [FILTNUM * FMDEPTH * nnz];
             }
 
             for (k = 0; k < nnz; ++k)
             {
                 ifs >> str >> tmp;
-                idx = i * FMDEPTH + j * nnz + k;
+                idx = i * FMDEPTH * nnz + j * nnz + k;
                 filtCooData[idx] = tmp;
             }
 
             for (k = 0; k < nnz; ++k)
             {
                 ifs >> str >> tmp;
-                idx = i * FMDEPTH + j * nnz + k;
-                filtCooRow[idx] = static_cast<char>(tmp);
+                idx = i * FMDEPTH * nnz + j * nnz + k;
+                filtCooRow[idx] = tmp;
             }
 
             for (k = 0; k < nnz; ++k)
             {
                 ifs >> str >> tmp;
-                idx = i * FMDEPTH + j * nnz + k;
-                filtCooCol[idx] = static_cast<char>(tmp);
+                idx = i * FMDEPTH * nnz + j * nnz + k;
+                filtCooCol[idx] = tmp;
             }
         }
     }
@@ -170,8 +171,8 @@ void initCoo()
         if (i == 0)
         {
             inNeuCooData = new short [FMDEPTH * nnz];
-            inNeuCooRow = new char [FMDEPTH * nnz];
-            inNeuCooCol = new char [FMDEPTH * nnz];
+            inNeuCooRow = new short [FMDEPTH * nnz];
+            inNeuCooCol = new short [FMDEPTH * nnz];
         }
 
         ifs >> str;
@@ -187,7 +188,7 @@ void initCoo()
         {
             ifs >> tmp;
             idx = i * nnz + j;
-            inNeuCooRow[idx] = static_cast<char>(tmp);
+            inNeuCooRow[idx] = tmp;
         }
 
         ifs >> str;
@@ -195,7 +196,7 @@ void initCoo()
         {
             ifs >> tmp;
             idx = i * nnz + j;
-            inNeuCooCol[idx] = static_cast<char>(tmp);
+            inNeuCooCol[idx] = tmp;
         }
     }
     ifs.close();
@@ -226,10 +227,10 @@ bool checker()
     int outVol = FILTNUM * FMSIZE / 2 * FMSIZE / 2;
 
     for (i = 0; i < outVol; ++i)
-        {
+    {
         if (outCPU[i] != outGPU[i])
         {
-            cout << "The element: " << i << " is wrong!" << endl;
+            cout << "The element: " << i << " is wrong!\n";
             cout << "outCPU[" << i << "] = " << outCPU[i] << endl;
             cout << "outGPU[" << i << "] = " << outGPU[i] << endl;
             return false;
