@@ -1,5 +1,5 @@
 // This program executes a typical convolutional layer in regular CNNs
-// 0230
+// 0233
 #include <iostream>
 #include "cnnConvLayer.h"
 using namespace std;
@@ -67,9 +67,9 @@ void convLayerCPU()
     }
 }
 
-/***    Implement your CUDA Kernel here    ***/
+/***   Implement your CUDA Kernel here   ***/
 __global__
-void convLayerGPU(const short *filtCooData, const short *filtCooRow, const short *filtCooCol, const short *inNeuCooData, const short *inNeuCooRow, const short *inNeuCooCol, int *devOut)
+void convLayerGPU(const short *filtCooData, const short *filtCccIdx, const short *inNeuCooData, const short *inNeuCooRow, const short *inNeuCooCol, int *devOut)
 {
     __shared__ int sum[34][34];
 
@@ -78,15 +78,24 @@ void convLayerGPU(const short *filtCooData, const short *filtCooRow, const short
               outY(THREADID / 16), outX(THREADID % 16), \
               outIdx(BLOCKID * 16 * 16 + outY * 16 + outX);
 
-    sum[THREADID % 32 + 1][THREADID / 32 + 1] = 0; // clear the middle(32*32) data in sum
+	// 1024 threads
+    //sum[THREADID % 32 + 1][THREADID / 32 + 1] = 0;
+
+	// 256 threads
+	sum[THREADID % 16 + 1 + 0][THREADID / 16 + 1 + 0] = 0;
+	sum[THREADID % 16 + 1 + 16][THREADID / 16 + 1 + 0] = 0;
+	sum[THREADID % 16 + 1 + 0][THREADID / 16 + 1 + 16] = 0;
+	sum[THREADID % 16 + 1 + 16][THREADID / 16 + 1 + 16] = 0;
+	// no need to care the surroundings
+
     __syncthreads();
 
     for (int i(0); i < 512; ++i)
     {
         if (THREADID < 204)
         {
-            offY = 1 - filtCooRow[BLOCKID * 512 + i];
-            offX = 1 - filtCooCol[BLOCKID * 512 + i];
+            offY = 1 - filtCccIdx[BLOCKID * 512 + i] / 3;
+            offX = 1 - filtCccIdx[BLOCKID * 512 + i] % 3;
             inY = inNeuCooRow[i * 204 + THREADID] + offY; // inY ranges from -1 to 32
             inX = inNeuCooCol[i * 204 + THREADID] + offX; // inX ranges from -1 to 32
             sum[inY + 1][inX + 1] += filtCooData[BLOCKID * 512 + i] * inNeuCooData[i * 204 + THREADID];
@@ -114,7 +123,7 @@ void convLayerGPU(const short *filtCooData, const short *filtCooRow, const short
         devOut[outIdx] = max;
     }
 }
-/***    Implement your CUDA Kernel here    ***/
+/***   Implement your CUDA Kernel here   ***/
 
 int main()
 {
@@ -134,8 +143,7 @@ int main()
 
 ///////////////////////////////
     cudaMalloc(&devFiltCooData, sizeof(short) * 512 * 512); // 512 filters, with only one nnz data per slice(512 in total)
-    cudaMalloc(&devFiltCooRow, sizeof(short) * 512 * 512);
-    cudaMalloc(&devFiltCooCol, sizeof(short) * 512 * 512);
+	cudaMalloc(&devFiltCccIdx, sizeof(short) * 512 * 512);
     cudaMalloc(&devInNeuCooData, sizeof(short) * 204 * 512);
     cudaMalloc(&devInNeuCooRow, sizeof(short) * 204 * 512);
     cudaMalloc(&devInNeuCooCol, sizeof(short) * 204 * 512);
@@ -146,15 +154,15 @@ int main()
 
 ///////////////////////////////
     cudaMemcpy(devFiltCooData, filtCooData, sizeof(short) * 512 * 512, cudaMemcpyHostToDevice);
-    cudaMemcpy(devFiltCooRow, filtCooRow, sizeof(short) * 512 * 512, cudaMemcpyHostToDevice);
-    cudaMemcpy(devFiltCooCol, filtCooCol, sizeof(short) * 512 * 512, cudaMemcpyHostToDevice);
+	cudaMemcpy(devFiltCccIdx, inFiltCccIdx, sizeof(short) * 512 * 512, cudaMemcpyHostToDevice);
     cudaMemcpy(devInNeuCooData, inNeuCooData, sizeof(short) * 204 * 512, cudaMemcpyHostToDevice);
     cudaMemcpy(devInNeuCooRow, inNeuCooRow, sizeof(short) * 204 * 512, cudaMemcpyHostToDevice);
     cudaMemcpy(devInNeuCooCol, inNeuCooCol, sizeof(short) * 204 * 512, cudaMemcpyHostToDevice);
 ///////////////////////////////
 
     /***    Lunch your CUDA Kernel here    ***/
-    convLayerGPU<<<512, 1024>>>(devFiltCooData, devFiltCooRow, devFiltCooCol, devInNeuCooData, devInNeuCooRow, devInNeuCooCol, devOut); // Lunch the kernel
+    //convLayerGPU<<<512, 256>>>(devFiltCooData, devFiltCooRow, devFiltCooCol, devInNeuCooData, devInNeuCooRow, devInNeuCooCol, devOut); // Lunch the kernel, about 900X
+	convLayerGPU<<<512, 256>>>(devFiltCooData, devFiltCccIdx, devInNeuCooData, devInNeuCooRow, devInNeuCooCol, devOut); // Lunch the kernel, about 2600X
     cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
     /***    Lunch your CUDA Kernel here    ***/
   clock_gettime(CLOCK_REALTIME, &time_end);

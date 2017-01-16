@@ -1,6 +1,6 @@
 #ifndef __CNNCONVLAYER_H__
 #define __CNNCONVLAYER_H__
-// 0230
+// 0233
 #include <cstdlib>
 #include <iostream>
 #include <string>
@@ -30,16 +30,33 @@ short *inNeuCooRow;
 short *inNeuCooCol;
 
 ///////////////////////////////
-short *inNeuG;
+short *inFiltCccIdx; // our format
+
 short *devFiltCooData;
-short *devFiltCooRow;
-short *devFiltCooCol;
+
+short *devFiltCccIdx; // our format
 
 short *devInNeuCooData;
 short *devInNeuCooRow;
 short *devInNeuCooCol;
 
 int *devOut;
+
+void cooToCccFilt(const int nnz, const short * cooRow, const short * cooCol, short * cccIdx)
+{
+    int tmp(0);
+    for (int k = 0; k < 512; ++k)
+    {
+        for (int j(0); j < 512; ++j)
+        {
+            for (int i(0); i < nnz; ++i)
+            {
+                tmp = cooRow[i + k * nnz * 512 + j * nnz] * FILTSIZE + cooCol[i + k * nnz * 512 + j * nnz];
+                cccIdx[i + k * nnz * 512 + j * nnz] = tmp;
+            }
+        }
+    }
+}
 ///////////////////////////////
 
 void init()
@@ -183,6 +200,11 @@ void initCoo()
         }
     }
     ifs.close();
+
+///////////////////////////////
+	inFiltCccIdx = new short[nnz * 512 * 512];
+	cooToCccFilt(1, filtCooRow, filtCooCol, inFiltCccIdx);
+///////////////////////////////
 }
 
 void ending()
@@ -204,15 +226,14 @@ void ending()
     delete [] inNeuCooCol;
 
 ///////////////////////////////
+	delete [] inFiltCccIdx;
+
     cudaFree(&devFiltCooData);
-    cudaFree(&devFiltCooRow);
-    cudaFree(&devFiltCooCol);
+	cudaFree(&devFiltCccIdx);
 
     cudaFree(&devInNeuCooData);
     cudaFree(&devInNeuCooRow);
     cudaFree(&devInNeuCooCol);
-
-    cudaFree(&inNeuG); // what is this
 
     cudaFree(&devOut); // done
 ///////////////////////////////
