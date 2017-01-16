@@ -29,35 +29,49 @@ short *inNeuCooData;
 short *inNeuCooRow;
 short *inNeuCooCol;
 
-///////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+// host pointer
 short *inFiltCccIdx; // our format
+short *inNeuCccIdx; // our format
 
+// device pointer
 short *devFiltCooData;
-
 short *devFiltCccIdx; // our format
-
 short *devInNeuCooData;
-short *devInNeuCooRow;
-short *devInNeuCooCol;
+short *devInNeuCccIdx; //ourformat
+int *devOut; // result
 
-int *devOut;
-
+// convert filter's format
 void cooToCccFilt(const int nnz, const short * cooRow, const short * cooCol, short * cccIdx)
 {
-    int tmp(0);
-    for (int k = 0; k < 512; ++k)
+    for (int k(0); k < 512; ++k)
     {
         for (int j(0); j < 512; ++j)
         {
             for (int i(0); i < nnz; ++i)
             {
-                tmp = cooRow[i + k * nnz * 512 + j * nnz] * FILTSIZE + cooCol[i + k * nnz * 512 + j * nnz];
-                cccIdx[i + k * nnz * 512 + j * nnz] = tmp;
+                cccIdx[i + k * nnz * 512 + j * nnz] = \
+                    cooRow[i + k * nnz * 512 + j * nnz] * 3 + \
+                    cooCol[i + k * nnz * 512 + j * nnz];
             }
         }
     }
 }
-///////////////////////////////
+
+// convert neuron's format
+void cooToCccNeu(const int nnz, const short * cooRow, const short * cooCol, short * cccIdx)
+{
+    int k(0);
+    for (int j(0); j < 512; ++j)
+    {
+        k = j * nnz;
+        for (int i(0); i < nnz; ++i)
+        {
+            cccIdx[i + k] = cooRow[i + k] * 32 + cooCol[i + k];
+        }
+    }
+}
+///////////////////////////////////////////////////////////////////////////////
 
 void init()
 {
@@ -201,10 +215,12 @@ void initCoo()
     }
     ifs.close();
 
-///////////////////////////////
-	inFiltCccIdx = new short[nnz * 512 * 512];
-	cooToCccFilt(1, filtCooRow, filtCooCol, inFiltCccIdx);
-///////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
+    inNeuCccIdx = new short[nnz * 512];
+    cooToCccNeu(204, inNeuCooRow, inNeuCooCol, inNeuCccIdx);
+    inFiltCccIdx = new short[nnz * 512 * 512];
+    cooToCccFilt(1, filtCooRow, filtCooCol, inFiltCccIdx);
+///////////////////////////////////////////////////////////////////////////////
 }
 
 void ending()
@@ -225,18 +241,18 @@ void ending()
     delete [] inNeuCooRow;
     delete [] inNeuCooCol;
 
-///////////////////////////////
-	delete [] inFiltCccIdx;
+///////////////////////////////////////////////////////////////////////////////
+    delete [] inFiltCccIdx;
+    delete [] inNeuCccIdx;
 
     cudaFree(&devFiltCooData);
-	cudaFree(&devFiltCccIdx);
+    cudaFree(&devFiltCccIdx);
 
     cudaFree(&devInNeuCooData);
-    cudaFree(&devInNeuCooRow);
-    cudaFree(&devInNeuCooCol);
+    cudaFree(&devInNeuCccIdx);
 
     cudaFree(&devOut); // done
-///////////////////////////////
+///////////////////////////////////////////////////////////////////////////////
 }
 
 bool checker(){
