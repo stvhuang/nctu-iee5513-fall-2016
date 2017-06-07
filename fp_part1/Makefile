@@ -4,7 +4,7 @@ TARGET = cnnConvLayer.exe
 all: cnnConvLayer.cu
 	$(CXX) $< -o $(TARGET) -Wno-deprecated-gpu-targets
 
-run: all
+run: $(TARGET)
 	./$(TARGET)
 
 .PHONY: clean
