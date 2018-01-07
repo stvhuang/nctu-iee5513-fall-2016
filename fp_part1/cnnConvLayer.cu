@@ -1,16 +1,15 @@
 // This program executes a typical convolutional layer in regular CNNs
-#include <iostream>
 #include "cnnConvLayer.h"
+#include <iostream>
 
 using namespace std;
 
-static const int FMAREA(FMSIZE * FMSIZE);
-static const int FILTAREA(FILTSIZE * FILTSIZE);
-static const int FILTVOL(FMDEPTH * FILTAREA);
+static const int FMAREA(FMSIZE *FMSIZE);
+static const int FILTAREA(FILTSIZE *FILTSIZE);
+static const int FILTVOL(FMDEPTH *FILTAREA);
 
 // This is the CPU version, please don't modify it
-void convLayerCPU()
-{
+void convLayerCPU() {
     const int filtVol = FMDEPTH * FILTSIZE * FILTSIZE;
     const int filtArea = FILTSIZE * FILTSIZE;
     const int fmArea = FMSIZE * FMSIZE;
@@ -30,11 +29,11 @@ void convLayerCPU()
                         for (x = 0; x < FILTSIZE; ++x) {
                             ifmy = fmy - FILTSIZE / 2 + y;
                             ifmx = fmx - FILTSIZE / 2 + x;
-                            filtIdx = fn * filtVol + sli * filtArea + y
-                                * FILTSIZE + x;
+                            filtIdx = fn * filtVol + sli * filtArea +
+                                      y * FILTSIZE + x;
                             inNeuIdx = sli * fmArea + ifmy * FMSIZE + ifmx;
-                            if (ifmy >= 0 && ifmy < FMSIZE && ifmx >= 0
-                                    && ifmx < FMSIZE) {
+                            if (ifmy >= 0 && ifmy < FMSIZE && ifmx >= 0 &&
+                                ifmx < FMSIZE) {
                                 sum += filt[filtIdx] * inNeu[inNeuIdx];
                             }
                         }
@@ -54,8 +53,8 @@ void convLayerCPU()
 
     // Max Pooling with Window Size 2x2
     for (sli = 0; sli < FILTNUM; ++sli) {
-        for (fmy = 0; fmy < FMSIZE / 2 ; ++fmy) {
-            for (fmx = 0; fmx < FMSIZE / 2 ; ++fmx) {
+        for (fmy = 0; fmy < FMSIZE / 2; ++fmy) {
+            for (fmx = 0; fmx < FMSIZE / 2; ++fmx) {
                 outNeuIdx = sli * fmArea + fmy * 2 * FMSIZE + fmx * 2;
                 max = outNeu[outNeuIdx];
                 for (y = 0; y < 2; ++y) {
@@ -77,9 +76,7 @@ void convLayerCPU()
 }
 
 /*** Implement your CUDA Kernel here ***/
-__global__
-void convLayerGPU(short * inNeu, short * filt, int * out)
-{
+__global__ void convLayerGPU(short *inNeu, short *filt, int *out) {
     __shared__ short filter[FILTAREA];
     __shared__ int outcome[1024], current_need_inNeu[1024];
 
@@ -92,8 +89,8 @@ void convLayerGPU(short * inNeu, short * filt, int * out)
 
     for (int slice(0); slice < 512; ++slice) {
         if (threadId < 9) {
-            filter[threadId] = filt[FILTVOL * blockIdx.x + FILTAREA * slice
-                + threadId];
+            filter[threadId] =
+                filt[FILTVOL * blockIdx.x + FILTAREA * slice + threadId];
         }
 
         current_need_inNeu[threadId] = inNeu[slice * FMAREA + threadId];
@@ -105,8 +102,9 @@ void convLayerGPU(short * inNeu, short * filt, int * out)
                 inx = x - FILTSIZE / 2 + kx;
                 iny = y - FILTSIZE / 2 + ky;
                 if (inx >= 0 && inx < FMSIZE && iny >= 0 && iny < FMSIZE) {
-                    outcome[threadId] += current_need_inNeu[iny * FMSIZE + inx]
-                        * filter[ky * FILTSIZE + kx];
+                    outcome[threadId] +=
+                        current_need_inNeu[iny * FMSIZE + inx] *
+                        filter[ky * FILTSIZE + kx];
                 }
             }
         }
@@ -118,10 +116,10 @@ void convLayerGPU(short * inNeu, short * filt, int * out)
     if (threadId < 256) {
         for (int i(0); i < 2; ++i) {
             for (int j(0); j < 2; ++j) {
-                if (max < outcome[(outy_double + i) * FMSIZE
-                        + (outx_double + j)]) {
-                    max = outcome[(outy_double + i) * FMSIZE
-                        + (outx_double + j)];
+                if (max <
+                    outcome[(outy_double + i) * FMSIZE + (outx_double + j)]) {
+                    max =
+                        outcome[(outy_double + i) * FMSIZE + (outx_double + j)];
                 }
             }
         }
@@ -130,10 +128,9 @@ void convLayerGPU(short * inNeu, short * filt, int * out)
 }
 /*** Implement your CUDA Kernel here ***/
 
-int main()
-{
+int main() {
     int convLayerCPUExecTime, convLayerGPUExecTime;
-    init(); // Initialize the data on host memory
+    init();  // Initialize the data on host memory
 
     timespec time_begin, time_end;
 
@@ -142,18 +139,18 @@ int main()
     clock_gettime(CLOCK_REALTIME, &time_end);
     convLayerCPUExecTime = timespec_diff_us(time_begin, time_end);
     cout << "CPU time for executing a typical convolutional layer = "
-        << convLayerCPUExecTime / 1000 << "ms" << endl;
+         << convLayerCPUExecTime / 1000 << "ms" << endl;
 
     // declare device pointer
-    short * devInputNeuron;
-    short * devInputFilter;
-    int * devOutputNeuron;
-    int * devOutput;
+    short *devInputNeuron;
+    short *devInputFilter;
+    int *devOutputNeuron;
+    int *devOutput;
 
     // compute the size for allocating memory on device
     const int inputNeuronSize = sizeof(short) * FMSIZE * FMSIZE * FMDEPTH;
-    const int filtersSize = sizeof(short) * FILTNUM * FILTSIZE * FILTSIZE
-        * FMDEPTH;
+    const int filtersSize =
+        sizeof(short) * FILTNUM * FILTSIZE * FILTSIZE * FMDEPTH;
     const int outputSize = sizeof(int) * FMSIZE / 2 * FMSIZE / 2 * FMDEPTH;
 
     // allocate memory on device
@@ -168,7 +165,7 @@ int main()
     /*** Lunch your CUDA Kernel here ***/
     clock_gettime(CLOCK_REALTIME, &time_begin);
     convLayerGPU<<<512, 1024>>>(devInputNeuron, devInputFilter, devOutput);
-    cudaDeviceSynchronize(); // Do synchronization before clock_gettime()
+    cudaDeviceSynchronize();  // Do synchronization before clock_gettime()
     clock_gettime(CLOCK_REALTIME, &time_end);
     /*** Lunch your CUDA Kernel here ***/
 
@@ -183,12 +180,12 @@ int main()
 
     convLayerGPUExecTime = timespec_diff_us(time_begin, time_end);
     cout << "GPU time for executing a typical convolutional layer = "
-        << convLayerGPUExecTime / 1000 << "ms" << endl;
+         << convLayerGPUExecTime / 1000 << "ms" << endl;
 
     if (checker()) {
         cout << "Congratulations! You pass the check." << endl;
         cout << "Speedup: "
-            << (float)convLayerCPUExecTime / convLayerGPUExecTime << endl;
+             << (float)convLayerCPUExecTime / convLayerGPUExecTime << endl;
     } else {
         cout << "Sorry! Your result is wrong." << endl;
     }
