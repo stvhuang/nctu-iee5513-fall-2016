@@ -13,51 +13,50 @@ using namespace std;
 #define FILTNUM 512
 #define STRIDE 1
 
-short *filt;
-short *inNeu;
-int *outNeu;
-int *outCPU;
-int *outGPU;
+short* filt;
+short* inNeu;
+int* outNeu;
+int* outCPU;
+int* outGPU;
 
-short *filtCooNNZ;
-short *filtCooData;
-short *filtCooRow;
-short *filtCooCol;
+short* filtCooNNZ;
+short* filtCooData;
+short* filtCooRow;
+short* filtCooCol;
 
-short *inNeuCooNNZ;
-short *inNeuCooData;
-short *inNeuCooRow;
-short *inNeuCooCol;
+short* inNeuCooNNZ;
+short* inNeuCooData;
+short* inNeuCooRow;
+short* inNeuCooCol;
 
 ///////////////////////////////////////////////////////////////////////////////
 // host pointer
-short *inFiltCccIdx;  // our format
-short *inNeuCccIdx;   // our format
+short* inFiltCccIdx;  // our format
+short* inNeuCccIdx;  // our format
 
 // device pointer
-short *devFiltCooData;
-short *devFiltCccIdx;  // our format
-short *devInNeuCooData;
-short *devInNeuCccIdx;  // ourformat
-int *devOut;            // result
+short* devFiltCooData;
+short* devFiltCccIdx;  // our format
+short* devInNeuCooData;
+short* devInNeuCccIdx;  // ourformat
+int* devOut;  // result
 
 // convert filter's format
-void cooToCccFilt(const int nnz, const short *cooRow, const short *cooCol,
-                  short *cccIdx) {
+void cooToCccFilt(const int nnz, const short* cooRow, const short* cooCol, short* cccIdx)
+{
     for (int k(0); k < 512; ++k) {
         for (int j(0); j < 512; ++j) {
             for (int i(0); i < nnz; ++i) {
-                cccIdx[i + k * nnz * 512 + j * nnz] =
-                    cooRow[i + k * nnz * 512 + j * nnz] * 3 +
-                    cooCol[i + k * nnz * 512 + j * nnz];
+                cccIdx[i + k * nnz * 512 + j * nnz] = cooRow[i + k * nnz * 512 + j * nnz] * 3
+                    + cooCol[i + k * nnz * 512 + j * nnz];
             }
         }
     }
 }
 
 // convert neuron's format
-void cooToCccNeu(const int nnz, const short *cooRow, const short *cooCol,
-                 short *cccIdx) {
+void cooToCccNeu(const int nnz, const short* cooRow, const short* cooCol, short* cccIdx)
+{
     int k(0);
     for (int j(0); j < 512; ++j) {
         k = j * nnz;
@@ -68,7 +67,8 @@ void cooToCccNeu(const int nnz, const short *cooRow, const short *cooCol,
 }
 ///////////////////////////////////////////////////////////////////////////////
 
-void init() {
+void init()
+{
     int i, j, k, l;
     string str;
     int tmp, inNeuIdx, filtIdx;
@@ -110,8 +110,8 @@ void init() {
             for (k = 0; k < FILTSIZE; ++k) {
                 for (l = 0; l < FILTSIZE; ++l) {
                     ifs >> tmp;
-                    filtIdx = i * FMDEPTH * FILTSIZE * FILTSIZE +
-                              j * FILTSIZE * FILTSIZE + k * FILTSIZE + l;
+                    filtIdx = i * FMDEPTH * FILTSIZE * FILTSIZE + j * FILTSIZE * FILTSIZE
+                        + k * FILTSIZE + l;
                     filt[filtIdx] = tmp;
                 }
             }
@@ -125,7 +125,8 @@ void init() {
     outGPU = new int[outVol]();
 }
 
-void initCoo() {
+void initCoo()
+{
     int i, j, k, idx;
     short tmp, nnz;
     string str;
@@ -216,7 +217,8 @@ void initCoo() {
     ///////////////////////////////////////////////////////////////////////////////
 }
 
-void ending() {
+void ending()
+{
     delete[] filt;
     delete[] inNeu;
     delete[] outNeu;
@@ -247,7 +249,8 @@ void ending() {
     ///////////////////////////////////////////////////////////////////////////////
 }
 
-bool checker() {
+bool checker()
+{
     int i;
     int outVol = FILTNUM * FMSIZE / 2 * FMSIZE / 2;
 
@@ -263,7 +266,8 @@ bool checker() {
     return true;
 }
 
-int timespec_diff_us(timespec &t1, timespec &t2) {
+int timespec_diff_us(timespec& t1, timespec& t2)
+{
     return (t2.tv_sec - t1.tv_sec) * 1e6 + (t2.tv_nsec - t1.tv_nsec) / 1e3;
 }
 

@@ -5,7 +5,8 @@
 using namespace std;
 
 // This is the CPU version, please don't modify it
-void convLayerCPU() {
+void convLayerCPU()
+{
     // declarations for bunch of indexing parameters
     int fn, sli, fmy, fmx, y, x;
     int sum, ifmy, ifmx, ofmy, ofmx;
@@ -25,11 +26,9 @@ void convLayerCPU() {
                         for (x = 0; x < FILTSIZE; ++x) {
                             ifmy = fmy - FILTSIZE / 2 + y;
                             ifmx = fmx - FILTSIZE / 2 + x;
-                            filtIdx = fn * filtVol + sli * filtArea +
-                                      y * FILTSIZE + x;
+                            filtIdx = fn * filtVol + sli * filtArea + y * FILTSIZE + x;
                             inNeuIdx = sli * fmArea + ifmy * FMSIZE + ifmx;
-                            if (ifmy >= 0 && ifmy < FMSIZE && ifmx >= 0 &&
-                                ifmx < FMSIZE) {
+                            if (ifmy >= 0 && ifmy < FMSIZE && ifmx >= 0 && ifmx < FMSIZE) {
                                 sum += filt[filtIdx] * inNeu[inNeuIdx];
                             }
                         }
@@ -73,14 +72,14 @@ void convLayerCPU() {
 }
 
 /***   Implement your CUDA Kernel here   ***/
-__global__ void convLayerGPU(const short *filtCooData, const short *filtCccIdx,
-                             const short *inNeuCooData,
-                             const short *inNeuCccIdx, int *devOut) {
+__global__ void convLayerGPU(const short* filtCooData, const short* filtCccIdx,
+    const short* inNeuCooData, const short* inNeuCccIdx, int* devOut)
+{
     __shared__ int sum[34][34];
 
     int inY(0), inX(0), offY(0), offX(0), max(0);
-    const int BLOCKID(blockIdx.x), THREADID(threadIdx.x), outY(THREADID / 16),
-        outX(THREADID % 16), outIdx(BLOCKID * 16 * 16 + outY * 16 + outX);
+    const int BLOCKID(blockIdx.x), THREADID(threadIdx.x), outY(THREADID / 16), outX(THREADID % 16),
+        outIdx(BLOCKID * 16 * 16 + outY * 16 + outX);
 
     // 1024 threads
     // sum[THREADID % 32 + 1][THREADID / 32 + 1] = 0;
@@ -101,8 +100,8 @@ __global__ void convLayerGPU(const short *filtCooData, const short *filtCccIdx,
             // inX and inY range from -1 to 32
             inY = inNeuCccIdx[i * 204 + THREADID] / 32 + offY;
             inX = inNeuCccIdx[i * 204 + THREADID] % 32 + offX;
-            sum[inY + 1][inX + 1] += filtCooData[BLOCKID * 512 + i] *
-                                     inNeuCooData[i * 204 + THREADID];
+            sum[inY + 1][inX + 1]
+                += filtCooData[BLOCKID * 512 + i] * inNeuCooData[i * 204 + THREADID];
         }
         __syncthreads();
     }
@@ -125,7 +124,8 @@ __global__ void convLayerGPU(const short *filtCooData, const short *filtCccIdx,
 }
 /***   Implement your CUDA Kernel here   ***/
 
-int main() {
+int main()
+{
     int convLayerCPUExecTime, convLayerGPUExecTime;
     init();
     initCoo();
@@ -152,26 +152,20 @@ int main() {
     clock_gettime(CLOCK_REALTIME, &time_begin);
 
     ///////////////////////////////////////////////////////////////////////////
-    cudaMemcpy(devFiltCooData, filtCooData, sizeof(short) * 512 * 512,
-               cudaMemcpyHostToDevice);
-    cudaMemcpy(devFiltCccIdx, inFiltCccIdx, sizeof(short) * 512 * 512,
-               cudaMemcpyHostToDevice);
-    cudaMemcpy(devInNeuCooData, inNeuCooData, sizeof(short) * 204 * 512,
-               cudaMemcpyHostToDevice);
-    cudaMemcpy(devInNeuCccIdx, inNeuCccIdx, sizeof(short) * 204 * 512,
-               cudaMemcpyHostToDevice);
+    cudaMemcpy(devFiltCooData, filtCooData, sizeof(short) * 512 * 512, cudaMemcpyHostToDevice);
+    cudaMemcpy(devFiltCccIdx, inFiltCccIdx, sizeof(short) * 512 * 512, cudaMemcpyHostToDevice);
+    cudaMemcpy(devInNeuCooData, inNeuCooData, sizeof(short) * 204 * 512, cudaMemcpyHostToDevice);
+    cudaMemcpy(devInNeuCccIdx, inNeuCccIdx, sizeof(short) * 204 * 512, cudaMemcpyHostToDevice);
     ///////////////////////////////////////////////////////////////////////////
 
     /***  Lunch your CUDA Kernel here  ***/
-    convLayerGPU<<<512, 256>>>(devFiltCooData, devFiltCccIdx, devInNeuCooData,
-                               devInNeuCccIdx,
-                               devOut);  // Lunch the kernel, about 2600X
+    convLayerGPU<<<512, 256>>>(devFiltCooData, devFiltCccIdx, devInNeuCooData, devInNeuCccIdx,
+        devOut);  // Lunch the kernel, about 2600X
     cudaDeviceSynchronize();  // Do synchronization before clock_gettime()
     /***  Lunch your CUDA Kernel here  ***/
     clock_gettime(CLOCK_REALTIME, &time_end);
 
-    cudaMemcpy(outGPU, devOut, sizeof(int) * 16 * 16 * 512,
-               cudaMemcpyDeviceToHost);
+    cudaMemcpy(outGPU, devOut, sizeof(int) * 16 * 16 * 512, cudaMemcpyDeviceToHost);
 
     convLayerGPUExecTime = timespec_diff_us(time_begin, time_end);
     cout << "GPU time for executing a typical convolutional layer = "
@@ -179,8 +173,7 @@ int main() {
 
     if (checker()) {
         cout << "Congratulations! You pass the check." << endl;
-        cout << "Speedup: "
-             << (float)convLayerCPUExecTime / convLayerGPUExecTime << endl;
+        cout << "Speedup: " << (float)convLayerCPUExecTime / convLayerGPUExecTime << endl;
     } else {
         cout << "Sorry! Your result is wrong." << endl;
     }

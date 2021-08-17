@@ -13,13 +13,14 @@ using namespace std;
 #define FILTNUM 512
 #define STRIDE 1
 
-short *filt;
-short *inNeu;
-int *outNeu;
-int *outCPU;
-int *outGPU;
+short* filt;
+short* inNeu;
+int* outNeu;
+int* outCPU;
+int* outGPU;
 
-void init() {
+void init()
+{
     int i, j, k, l;
     string str;
     int tmp, inNeuIdx, filtIdx;
@@ -62,8 +63,8 @@ void init() {
             for (k = 0; k < FILTSIZE; ++k) {
                 for (l = 0; l < FILTSIZE; ++l) {
                     ifs >> tmp;
-                    filtIdx = i * FMDEPTH * FILTSIZE * FILTSIZE +
-                              j * FILTSIZE * FILTSIZE + k * FILTSIZE + l;
+                    filtIdx = i * FMDEPTH * FILTSIZE * FILTSIZE + j * FILTSIZE * FILTSIZE
+                        + k * FILTSIZE + l;
                     filt[filtIdx] = tmp;
                 }
             }
@@ -76,7 +77,8 @@ void init() {
     outGPU = new int[outVol]();
 }
 
-void ending() {
+void ending()
+{
     delete[] filt;
     delete[] inNeu;
     delete[] outNeu;
@@ -84,7 +86,8 @@ void ending() {
     delete[] outGPU;
 }
 
-bool checker() {
+bool checker()
+{
     int i;
     int outVol = FILTNUM * FMSIZE / 2 * FMSIZE / 2;
 
@@ -100,7 +103,8 @@ bool checker() {
     return true;
 }
 
-int timespec_diff_us(timespec &t1, timespec &t2) {
+int timespec_diff_us(timespec& t1, timespec& t2)
+{
     return (t2.tv_sec - t1.tv_sec) * 1e6 + (t2.tv_nsec - t1.tv_nsec) / 1e3;
 }
 
